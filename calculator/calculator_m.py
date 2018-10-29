@@ -1,42 +1,87 @@
 import sys
 import csv
+from multiprocessing import Process, Queue
+import getopt
+import configparser 
 
 THRESHOLD = 3500
 
 
 class Args(object):
     def __init__(self):
-        self.args = sys.argv[1:]
 
-    @property
-    def configfile(self):
         try:
-            index_c = self.args.index('-c')
-            configfile = self.args[index_c + 1]
-            return configfile
-        except ValueError:
-            print('Paremeter Error!')
+            self.args = sys.argv[1:]
+            options, args = getopt.getopt(self.args, "hC:c:d:o:", ['help'])
+            for name, value in options:
+                if name in ('-h', '--help'):
+                    self.usage()
+                elif name in ('-C', ):
+                    self.city = value.upper()
+                elif name in ('-c', ):
+                    self.configfile = value
+                elif name in ('-d', ):
+                    self.userdatafile = value
+                elif name in ('-o', ):
+                    self.outputfile = value
+
+        except getopt.GetoptError:
+            self.usage()
             sys.exit(-1)
 
-    @property
-    def userdatafile(self):
-        try:
-            index_d = self.args.index('-d')
-            userdatafile = self.args[index_d + 1]
-            return userdatafile
-        except ValueError:
-            print('Paremeter Error!')
-            sys.exit(-1)
+    def usage(self):
+        print(
+            'Usage: calculator.py -C cityname -c configfile -d userdata -o resultdata'
+        )
 
-    @property
-    def outputfile(self):
-        try:
-            index_o = self.args.index('-o')
-            outputfile = self.args[index_o + 1]
-            return outputfile
-        except ValueError:
-            print('Paremeter Error!')
-            sys.exit(-1)
+    # def arg(self):
+    #     try:
+    #         options, args = getopt.getopt(sys.argv[1:], "hC:c:d:o:", ['help'])
+    #         for name, value in options:
+    #             if name in ('-h', '--help'):
+    #                 self.usage()
+    #             elif name in ('-C', ):
+    #                 self.city = value.upper()
+    #             elif name in ('-c', ):
+    #                 self.configfile = value
+    #             elif name in ('-d', ):
+    #                 self.userdatafile = value
+    #             elif name in ('-o', ):
+    #                 self.outputfile = value
+
+    #     except getopt.GetoptError:
+    #         self.usage()
+    #         sys.exit(-1)
+
+    # @property
+    # def configfile(self):
+    #     try:
+    #         index_c = self.args.index('-c')
+    #         configfile = self.args[index_c + 1]
+    #         return configfile
+    #     except ValueError:
+    #         print('Paremeter Error!')
+    #         sys.exit(-1)
+
+    # @property
+    # def userdatafile(self):
+    #     try:
+    #         index_d = self.args.index('-d')
+    #         userdatafile = self.args[index_d + 1]
+    #         return userdatafile
+    #     except ValueError:
+    #         print('Paremeter Error!')
+    #         sys.exit(-1)
+
+    # @property
+    # def outputfile(self):
+    #     try:
+    #         index_o = self.args.index('-o')
+    #         outputfile = self.args[index_o + 1]
+    #         return outputfile
+    #     except ValueError:
+    #         print('Paremeter Error!')
+    #         sys.exit(-1)
 
 
 class Config(object):
@@ -45,6 +90,7 @@ class Config(object):
 
     def _read_config(self):
         args_ = Args()
+        args_.arg()
         config = {}
         try:
             path = args_.configfile
@@ -64,10 +110,12 @@ class Config(object):
 
 class UserData(object):
     def __init__(self):
-        self.userdata = self._read_userdata()
+        # self.userdata = self._read_userdata()
+        pass
 
-    def _read_userdata(self):
+    def _read_userdata(self, queue1):
         args_ = Args()
+        args_.arg()
 
         userdata = []
         # path = args_.userdatafile
@@ -80,17 +128,17 @@ class UserData(object):
             # print(userdata)
         except FileNotFoundError:
             print('No such file or directory!')
-        return userdata
+        queue1.put_nowait(userdata)
 
 
 class IncomeTaxCalculator(object):
-    def calc_for_all_userdata(self):
-        userdata_ = UserData()
+    def calc_for_all_userdata(self, queue1, queue2):
+        # userdata_ = UserData()
         config_ = Config()
-
+        userdata = queue1.get_nowait()
         outputdata = []
 
-        for data in userdata_.userdata:
+        for data in userdata:
             user = data[0]
             salary = data[1]
             taxdata = []
@@ -144,11 +192,14 @@ class IncomeTaxCalculator(object):
             taxdata.append('%.2f' % (float(salary) - shebao - tax))
             outputdata.append(taxdata)
         # print(outputdata)
-        return outputdata
+        # return outputdata
+        queue2.put_nowait(outputdata)
 
-    def export(self, default='csv'):
+    def export(self, queue2, default='csv'):
         args_ = Args()
-        result = self.calc_for_all_userdata()
+        args_.arg()
+        # result = self.calc_for_all_userdata()
+        result = queue2.get()
         path = args_.outputfile
         with open(path, 'w') as f:
             writer = csv.writer(f)
@@ -156,5 +207,13 @@ class IncomeTaxCalculator(object):
 
 
 if __name__ == '__main__':
-    gongzi = IncomeTaxCalculator()
-    gongzi.export()
+    # queue1 = Queue()
+    # queue2 = Queue()
+    # userdata = UserData()
+    # gongzi = IncomeTaxCalculator()
+    # Process(target=userdata._read_userdata, args=(queue1, )).start()
+    # Process(target=gongzi.calc_for_all_userdata, args=(queue1, queue2)).start()
+    # Process(target=gongzi.export, args=(queue2, )).start()
+
+    arg = Args()
+    print(arg.city)

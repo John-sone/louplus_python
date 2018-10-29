@@ -1,5 +1,6 @@
 import sys
 import csv
+from multiprocessing import Process, Queue
 
 THRESHOLD = 3500
 
@@ -64,9 +65,10 @@ class Config(object):
 
 class UserData(object):
     def __init__(self):
-        self.userdata = self._read_userdata()
+        # self.userdata = self._read_userdata()
+        pass
 
-    def _read_userdata(self):
+    def _read_userdata(self, queue1):
         args_ = Args()
 
         userdata = []
@@ -80,17 +82,17 @@ class UserData(object):
             # print(userdata)
         except FileNotFoundError:
             print('No such file or directory!')
-        return userdata
+        queue1.put_nowait(userdata)
 
 
 class IncomeTaxCalculator(object):
-    def calc_for_all_userdata(self):
-        userdata_ = UserData()
+    def calc_for_all_userdata(self, queue1, queue2):
+        # userdata_ = UserData()
         config_ = Config()
-
+        userdata = queue1.get_nowait()
         outputdata = []
 
-        for data in userdata_.userdata:
+        for data in userdata:
             user = data[0]
             salary = data[1]
             taxdata = []
@@ -144,11 +146,13 @@ class IncomeTaxCalculator(object):
             taxdata.append('%.2f' % (float(salary) - shebao - tax))
             outputdata.append(taxdata)
         # print(outputdata)
-        return outputdata
+        # return outputdata
+        queue2.put_nowait(outputdata)
 
-    def export(self, default='csv'):
+    def export(self, queue2, default='csv'):
         args_ = Args()
-        result = self.calc_for_all_userdata()
+        # result = self.calc_for_all_userdata()
+        result = queue2.get()
         path = args_.outputfile
         with open(path, 'w') as f:
             writer = csv.writer(f)
@@ -156,5 +160,10 @@ class IncomeTaxCalculator(object):
 
 
 if __name__ == '__main__':
+    queue1 = Queue()
+    queue2 = Queue()
+    userdata = UserData()
     gongzi = IncomeTaxCalculator()
-    gongzi.export()
+    Process(target=userdata._read_userdata, args=(queue1, )).start()
+    Process(target=gongzi.calc_for_all_userdata, args=(queue1, queue2)).start()
+    Process(target=gongzi.export, args=(queue2, )).start()
